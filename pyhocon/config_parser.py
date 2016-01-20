@@ -144,6 +144,9 @@ class ConfigParser(object):
             except ValueError:
                 return float(n)
 
+        def convert_duration(tokens):
+            pass
+
         # ${path} or ${?path} for optional substitution
         SUBSTITUTION = "\$\{(?P<optional>\?)?(?P<variable>[^}]+)\}(?P<ws>\s*)"
 
@@ -197,6 +200,8 @@ class ConfigParser(object):
         number_expr = Regex('[+-]?(\d*\.\d+|\d+(\.\d+)?)([eE]\d+)?(?=$|[ \t]*([\$\}\],#\n\r]|//))',
                             re.DOTALL).setParseAction(convert_number)
 
+        duration_expr = Regex('', re.DOTALL).setParseAction(convert_duration)
+
         # multi line string using """
         # Using fix described in http://pyparsing.wikispaces.com/share/view/3778969
         multiline_string = Regex('""".*?"""', re.DOTALL | re.UNICODE).setParseAction(parse_multi_string)
@@ -212,7 +217,7 @@ class ConfigParser(object):
         substitution_expr = Regex('[ \t]*\$\{[^\}]+\}[ \t]*').setParseAction(create_substitution)
         string_expr = multiline_string | quoted_string | unquoted_string
 
-        value_expr = number_expr | true_expr | false_expr | null_expr | string_expr
+        value_expr = number_expr | true_expr | false_expr | null_expr | duration_expr | string_expr
 
         include_expr = (Keyword("include", caseless=True).suppress() - (
             quoted_string | ((Keyword('url') | Keyword('file')) - Literal('(').suppress() - quoted_string - Literal(')').suppress()))) \

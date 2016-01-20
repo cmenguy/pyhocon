@@ -11,7 +11,8 @@ except NameError:
     basestring = str
 
 import re
-from .exceptions import ConfigException, ConfigWrongTypeException, ConfigMissingException
+from datetime import timedelta
+from .exceptions import ConfigException, ConfigWrongTypeException, ConfigMissingException, ConfigBadValueException
 
 
 class UndefinedKey(object):
@@ -134,6 +135,46 @@ class ConfigTree(OrderedDict):
         tokens = re.findall('"[^"]+"|[^\.]+', str)
         return [token if '.' in token else token.strip('"') for token in tokens]
 
+    def _get_unit(self, str):
+        i = len(str) - 1
+        while i >= 0:
+            c = str[i]
+            if not c.isalpha():
+                break
+            i -= 1
+        return str[i + 1:]
+
+    def _parse_duration(self, str):
+        original_unit = self._get_unit(str)
+        raw_unit = original_unit
+        number_str = str[:len(str) - len(raw_unit)]
+        if len(raw_unit) > 2 and not raw_unit.endswith("s"):
+            raw_unit += "s"
+
+        if raw_unit in ("", "ms", "millis", "milliseconds"):
+            unit = "milliseconds"
+        elif raw_unit in ("us", "micros", "microseconds"):
+            unit = "microseconds"
+        elif raw_unit in ("ns", "nanos", "nanoseconds"):
+            unit = "nanoseconds"
+        elif raw_unit in ("d", "days"):
+            unit = "days"
+        elif raw_unit in ("h", "hours"):
+            unit = "hours"
+        elif raw_unit in ("s", "seconds"):
+            unit = "seconds"
+        elif raw_unit in ("m", "minutes"):
+            unit = "minutes"
+        else:
+            raise ConfigBadValueException(
+                "Could not parse time unit '{unit}' (try ns, us, ms, s, m, h, d)".format(unit=original_unit))
+
+        if unit == "nanoseconds":
+            return long(number_str)
+        else:
+            td = timedelta(**{unit: long(number_str)})
+            return 1000 * (td.microseconds + (td.seconds + td.days * 24 * 3600) * 1000 * 1000)
+
     def put(self, key, value, append=False):
         """Put a value in the tree (dot separated)
 
@@ -218,6 +259,37 @@ class ConfigTree(OrderedDict):
         else:
             raise ConfigException(
                 "{key} has type '{type}' rather than 'list'".format(key=key, type=type(value).__name__))
+
+    def get_milliseconds(self, key, default=UndefinedKey):
+        return self.get_duration(key, "ms", default)
+
+    def get_nanoseconds(self, key, default=UndefinedKey):
+        return self.get_duration(key, "", default)
+
+    def get_duration(self, key, unit="", default=UndefinedKey):
+        value = self.get(key, default)
+        if isinstance(value, str):
+            nanos = self._parse_duration(value)
+            if unit in ("", "ms", "millis", "milliseconds"):
+                return nanos / 1000**2
+            elif unit in ("us", "micros", "microseconds"):
+                return nanos / 1000
+            elif unit in ("ns", "nanos", "nanoseconds"):
+                return nanos
+            elif unit in ("d", "days"):
+                return (nanos / 1000**3) / 3600 / 24
+            elif unit in ("h", "hours"):
+                return (nanos / 1000**3) / 3600
+            elif unit in ("s", "seconds"):
+                return nanos / 1000**3
+            elif unit in ("m", "minutes"):
+                return (nanos / 1000**3) / 60
+            else:
+                raise ConfigException(
+                    "Could not parse time unit '{unit}' (try ns, us, ms, s, m, h, d)".format(unit=unit))
+        else:
+            raise ConfigException(
+                "{key} has type '{type}' rather than 'str'".format(key=key, type=type(value).__name__))
 
     def get_config(self, key, default=UndefinedKey):
         """Return tree config representation of value found at key

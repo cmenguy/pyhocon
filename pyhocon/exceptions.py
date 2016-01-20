@@ -15,3 +15,7 @@ class ConfigSubstitutionException(ConfigException):
 
 class ConfigWrongTypeException(ConfigException):
     pass
+
+
+class ConfigBadValueException(ConfigException):
+    pass

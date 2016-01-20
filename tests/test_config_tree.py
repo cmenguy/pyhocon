@@ -140,3 +140,22 @@ class TestConfigParser(object):
         config_tree.put("int", 5, True)
         config_tree.put("int.config", 1, True)
         assert config_tree == {'int': {'config': 1}}
+
+    def test_durations(self):
+        one_sec = ("1s", "1 s", "1seconds", "1 seconds", "   1s    ", "   1    s   ",
+                   "1second",
+                   "1000", "1000ms", "1000 ms", "1000   milliseconds", "   1000       milliseconds    ",
+                   "1000millisecond",
+                   "1000000us", "1000000   us", "1000000 microseconds", "1000000microsecond",
+                   "1000000000ns", "1000000000 ns", "1000000000  nanoseconds", "1000000000nanosecond",
+                   "0.01666666666666666666666m", "0.01666666666666666666666 minutes", "0.01666666666666666666666 minute",
+                   "0.00027777777777777777777h", "0.00027777777777777777777 hours", "0.00027777777777777777777hour",
+                   "1.1574074074074073e-05d", "1.1574074074074073e-05  days", "1.1574074074074073e-05day")
+        config_tree = ConfigTree()
+        nanos_in_one_sec = 1000**3
+        millis_in_one_sec = 1000
+        for repr in one_sec:
+            config_tree.put("one_sec", repr)
+            assert config_tree.get_nanoseconds() == nanos_in_one_sec
+            assert config_tree.get_milliseconds() == millis_in_one_sec
+
